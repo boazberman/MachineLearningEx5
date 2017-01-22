@@ -5,31 +5,6 @@ import numpy as np
 ITERATIONS = 10
 
 
-def parse_data(initial_centroids_path, image_file_path):
-    x = np.array(Image.open(image_file_path))
-    centroids = np.loadtxt(initial_centroids_path)
-
-    return centroids, x
-
-
-def calculate_centroids(centroids, image):
-    for _ in xrange(ITERATIONS):
-        clustered_pixels = classify(centroids, image)
-        recalculate_centroids(centroids, clustered_pixels)
-
-    for row in centroids:
-        for cell in row:
-            print "%s" % int(cell)
-
-    return centroids
-
-
-def recalculate_centroids(centroids, clusters_pixels):
-    for i in xrange(len(centroids)):
-        if len(clusters_pixels[i]) != 0:
-            centroids[i] = np.sum(clusters_pixels[i], axis=0) / len(clusters_pixels[i])
-
-
 def classify(centroids, image):
     clusters = {}
     for row in image:
@@ -41,35 +16,57 @@ def classify(centroids, image):
     return clusters
 
 
-def find_nearest_centroid(pixel, centroids):
-    return centroids[np.argmin([np.linalg.norm(pixel - c) for c in centroids])]
-
-
 def recalc_image(image, centroids):
     for row in image:
         for i, pixel in enumerate(row):
             row[i] = find_nearest_centroid(pixel, centroids)
-
     return image
+
+
+def recalculate_centroids(centroids, clusters_pixels):
+    for i in xrange(len(centroids)):
+        if len(clusters_pixels[i]) != 0:
+            centroids[i] = np.sum(clusters_pixels[i], axis=0) / float(len(clusters_pixels[i]))
+
+
+def find_nearest_centroid(pixel, centroids):
+    return centroids[np.argmin([np.linalg.norm(pixel - c) for c in centroids])]
 
 
 def save_new_image(new_image, image_file_name):
     Image.fromarray(new_image).save(image_file_name + '_comp.tif')
 
 
-def extract_file_name(file_path):
+def calculate_centroids(centroids, image):
+    for _ in xrange(ITERATIONS):
+        clustered_pixels = classify(centroids, image)
+        recalculate_centroids(centroids, clustered_pixels)
+
+    for row in centroids:
+        print "%s" % " ".join("%s" % int(cell) for cell in row)
+
+    return centroids
+
+
+def to_output_file_name(file_path):
     if "\\" in file_path:
         file_path = file_path.rsplit("\\", 1)[1]
     return file_path.rsplit(".", 1)[0]
 
 
+def open_and_parse(initial_centroids_path, image_file_path):
+    centroids = np.loadtxt(initial_centroids_path)
+    x = np.array(Image.open(image_file_path))
+
+    return centroids, x
+
+
 def main(args):
-    initial_centroids_path = args[0]
-    image_file_path = args[1]
-    centroids, image = parse_data(initial_centroids_path, image_file_path)
-    new_centroids = calculate_centroids(centroids, image)
-    new_image = recalc_image(image, new_centroids)
-    save_new_image(new_image, extract_file_name(image_file_path))
+    centroids_file = args[0]
+    image_file = args[1]
+    initial_centroids, image = open_and_parse(centroids_file, image_file)
+    final_centroids = calculate_centroids(initial_centroids, image)
+    save_new_image(recalc_image(image, final_centroids), to_output_file_name(image_file))
 
 
 if __name__ == "__main__":
